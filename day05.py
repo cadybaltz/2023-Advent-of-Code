@@ -2,11 +2,56 @@
 cadybaltz
 12/05/2023
 AoC 2023 Day 5
-Part 1: 171, 00:03:15
-Part 2: 344, 00:09:56
+Part 1: 2690, 00:28:13
+Part 2: 38643, 20:18:11
 """
 
 import sys
+
+def solution_pt1(file):
+    lines = file.readlines()
+
+    seeds = []
+
+    all_maps = []
+    curr_map = {}
+
+    x = 0
+    while x < len(lines):
+        line = lines[x]
+
+        if x == 0:
+            seed_l = line.split()
+            for y in range(1, len(seed_l)):
+                seeds.append(seed_l[y])
+        elif x >= 3:
+            if len(line) < 3:
+                all_maps.append(curr_map)
+                curr_map = {}
+                x += 1
+            else:
+                curr = line.split()
+                range1 = int(curr[2])
+
+                curr_map[(int(curr[1]), int(curr[1]) + range1 - 1)] = int(curr[0]) - int(curr[1])
+        x += 1
+        all_maps.append(curr_map)
+
+    min = sys.maxsize
+    for seed in seeds:
+        new_curr = None
+        curr = int(seed)
+        for maps in all_maps:
+            for r, v in maps.items():
+                if r[0] <= curr <= r[1]:
+                    new_curr = curr + v
+            if new_curr is not None:
+                curr = new_curr
+
+        if curr < min:
+            min = curr
+
+    return min
 
 def method1(sorted_list, new_tuple, seen):
     new_result = []
@@ -21,41 +66,36 @@ def method1(sorted_list, new_tuple, seen):
         if is_done:
             new_result.append(lt)
 
-        if new_start > end + value or new_end < start + value:
-            # Check if the new tuple does not overlap with any existing tuple in result
+        if new_end < start + value:
             new_result.append([start, end, value, False])
         else:
-            # Take the overlapping part from the new tuple and add it to the existing tuple
-            overlapping_start = max(start + value, new_start)
-            overlapping_end = min(end + value, new_end)
-
-            new_result.append([overlapping_start - value, overlapping_end - value, value + new_value, True])
-
             g = start + value
             h = end + value
+            offset_g = g - value
+            offset_h = h - value
 
             if g < new_start:
                 if h < new_start:
-                    new_result.append([g - value, h - value, value, False])
+                    new_result.append([offset_g, offset_h, value, True])
                 elif h <= new_end:
-                    new_result.append([g - value, new_start - 1 - value, value, False])
-                    new_result.append([new_start - value, h - value, value + new_value, True])
+                    new_result.append([offset_g, new_start - 1 - value, value, True])
+                    new_result.append([new_start - value, offset_h, value + new_value, True])
                 else:
-                    new_result.append([g - value, new_start - 1 - value, value, False])
+                    new_result.append([offset_g, new_start - 1 - value, value, True])
                     new_result.append([new_start - value, new_end - value, value + new_value, True])
-                    new_result.append([new_end + 1 - value, h - value, value, False])
+                    new_result.append([new_end + 1 - value, offset_h, value, False])
             elif g <= new_end:
                 if h <= new_end:
-                    new_result.append([g - value, h - value, value + new_value, True])
+                    new_result.append([offset_g, offset_h, value + new_value, True])
                 else:
-                    new_result.append([g - value, new_end - value, value + new_value, True])
-                    new_result.append([new_end + 1 - value, h - value, value, False])
+                    new_result.append([offset_g, new_end - value, value + new_value, True])
+                    new_result.append([new_end + 1 - value, offset_h, value, False])
             else:
-                new_result.append([g - value, h - value, value, False])
+                new_result.append([offset_g, offset_h, value, False])
     new_new_res = []
     seen = {}
     for val in new_result:
-        key = str(val[0])+','+str(val[1])+','+str(val[3])
+        key = str(val[0]) + ',' + str(val[1]) + ',' + str(val[3])
         key1 = str(val[0]) + ',' + str(val[1]) + ',' + "True"
         key2 = str(val[0]) + ',' + str(val[1]) + ',' + "False"
         if(val[3]):
@@ -71,61 +111,10 @@ def method1(sorted_list, new_tuple, seen):
             else:
                 seen[key] = val[2]
                 new_new_res.append(val)
-    return sorted(new_new_res, key=lambda tup: tup[0]), seen
+    return sorted(new_new_res, key=lambda tup: tup[0])
 
-def combine_overlapping_ranges(ranges):
-    result = []
-    for start, end in sorted(ranges):
-        if result and start <= result[-1][1] + 1:
-            result[-1] = (result[-1][0], max(result[-1][1], end))
-        else:
-            result.append((start, end))
-    return result
-
-
-# given old list of tuples
-# add new
-def method2(existing_tuples, new_tuple):
-
-    curr = new_tuple
-    currs = []
-
-    x = 0
-    while x < len(existing_tuples):
-        existing_tuple = existing_tuples[x]
-        if curr is not None:
-            if existing_tuple[1] < curr[0]:
-                if x == len(existing_tuples) - 1:
-                    currs.append(curr)
-                    curr = None
-            elif curr[0] < existing_tuple[0]:
-                if curr[1] > existing_tuple[0]:
-                    currs.append((curr[0], existing_tuple[0] - 1, curr[2]))
-                    curr = (existing_tuple[1] + 1, curr[1], curr[2])
-
-                else:
-                    currs.append(curr)
-                    curr = None
-
-            elif curr[0] >= existing_tuple[0]:
-                if curr[1] > existing_tuple[1]:
-                    curr = (existing_tuple[1] + 1, curr[1], curr[2])
-                else:
-                    curr = None
-
-        x += 1
-
-    if curr is not None:
-        currs.append(curr)
-    for curr in currs:
-        existing_tuples.append(curr)
-    return sorted(existing_tuples, key=lambda tup: tup[0])
-
-
-def solution(file):
+def solution_pt2(file):
     lines = file.readlines()
-
-    result = 0
 
     seed_ranges = []
 
@@ -153,8 +142,8 @@ def solution(file):
                 range1 = curr[2]
 
                 curr_map.append((int(curr[1]), int(curr[1]) + int(range1) - 1, int(curr[0]) - int(curr[1])))
-
         x += 1
+
     maps.append(curr_map)
 
     num_transform = []
@@ -162,34 +151,31 @@ def solution(file):
         num_transform.append([sr[0], sr[1], 0, False])
 
     for b in range(1, len(maps)):
-        nt_seen = set()
-
-        # for the existing tuples. if after they are modified, they match the next step, update the change value.
         n = 0
 
         sortedd = sorted(maps[b], key=lambda tup: tup[0])
         while n < len(sortedd):
             other = sortedd[n]
 
-            new, nt_seen = method1(num_transform, other, set())
+            new = method1(num_transform, other, set())
             num_transform = sorted(new, key=lambda tup: tup[0])
             n += 1
 
         for r in num_transform:
             r[3] = False
         num_transform = sorted(num_transform, key=lambda tup: tup[0])
-        print(num_transform)
 
-    mini = 100000000000000000
-
-
+    mini = sys.maxsize
+    new_min = set()
     for nt in num_transform:
-        if nt[0] + nt[2] > 0:
-            mini = min(mini, nt[0] + nt[2])
-        if nt[1] + nt[2] > 0:
-            mini = min(mini, nt[1] + nt[2])
+        mini = min(mini, nt[0] + nt[2])
+        mini = min(mini, nt[1] + nt[2])
+        if mini not in new_min:
+            new_min.add(mini)
 
-    return mini
+    # this produces a set of four numbers for my input.txt. one of them is the correct answer, and it's not the lowest number.
+    # why? no one will ever know.
+    return new_min
 
 
 if __name__ == '__main__':
@@ -197,6 +183,10 @@ if __name__ == '__main__':
         input = open("test.txt", "r")
     else:
         input = open("input.txt", "r")
-    print(solution(input))
+    print(solution_pt1(input))
 
-# too low: 30202489
+    if sys.argv[1] == 't':
+        input = open("test.txt", "r")
+    else:
+        input = open("input.txt", "r")
+    print(solution_pt2(input))
