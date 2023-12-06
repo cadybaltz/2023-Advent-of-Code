@@ -8,65 +8,70 @@ Part 2: 344, 00:09:56
 
 import sys
 
-def method1(sorted_list, new_tuple):
-    old_result = []
+def method1(sorted_list, new_tuple, seen):
     new_result = []
     new_start, new_end, new_value = new_tuple
 
-    for i, (start, end, value) in enumerate(sorted_list):
+    for i, lt in enumerate(sorted_list):
+        start = lt[0]
+        end = lt[1]
+        value = lt[2]
+        is_done = lt[3]
+
+        if is_done:
+            new_result.append(lt)
+
         if new_start > end + value or new_end < start + value:
             # Check if the new tuple does not overlap with any existing tuple in result
-            new_result.append((start, end, value))
-            old_result.append((start, end, value))
+            new_result.append([start, end, value, False])
         else:
             # Take the overlapping part from the new tuple and add it to the existing tuple
-
-
             overlapping_start = max(start + value, new_start)
             overlapping_end = min(end + value, new_end)
 
-            new_result.append((overlapping_start - value, overlapping_end - value, value + new_value))
-            old_result.append((overlapping_start - value, overlapping_end - value, value))
+            new_result.append([overlapping_start - value, overlapping_end - value, value + new_value, True])
 
             g = start + value
             h = end + value
 
             if g < new_start:
                 if h < new_start:
-                    if ((g - value, h - value, value) not in new_result):
-                        new_result.append((g - value, h - value, value))
-                        old_result.append((g - value, h - value, value))
+                    new_result.append([g - value, h - value, value, False])
                 elif h <= new_end:
-                    new_result.append((g - value, new_start - 1 - value, value))
-                    new_result.append((new_start - value, h - value, value + new_value))
-
-                    old_result.append((g - value, new_start - 1 - value, value))
-                    old_result.append((new_start - value, h - value, value))
+                    new_result.append([g - value, new_start - 1 - value, value, False])
+                    new_result.append([new_start - value, h - value, value + new_value, True])
                 else:
-                    new_result.append((g - value, new_start - 1 - value, value))
-                    new_result.append((new_start - value, new_end - value, value + new_value))
-                    new_result.append((new_end + 1 - value, h - value, value))
-
-                    old_result.append((g - value, new_start - 1 - value, value))
-                    old_result.append((new_start - value, new_end - value, value))
-                    old_result.append((new_end + 1 - value, h - value, value))
+                    new_result.append([g - value, new_start - 1 - value, value, False])
+                    new_result.append([new_start - value, new_end - value, value + new_value, True])
+                    new_result.append([new_end + 1 - value, h - value, value, False])
             elif g <= new_end:
                 if h <= new_end:
-                    new_result.append((g - value, h - value, value + new_value))
-                    old_result.append((g - value, h - value, value))
+                    new_result.append([g - value, h - value, value + new_value, True])
                 else:
-                    new_result.append((g - value, new_end - value, value + new_value))
-                    new_result.append((new_end + 1 - value, h - value, value))
-
-                    old_result.append((g - value, new_end - value, value))
-                    old_result.append((new_end + 1 - value, h - value, value))
+                    new_result.append([g - value, new_end - value, value + new_value, True])
+                    new_result.append([new_end + 1 - value, h - value, value, False])
             else:
-                if ((g - value, h - value, value) not in new_result):
-                    new_result.append((g - value, h - value, value))
-                    old_result.append((g - value, h - value, value))
-
-
-    return sorted(new_result, key=lambda tup: tup[0]), sorted(old_result, key=lambda tup: tup[0])
+                new_result.append([g - value, h - value, value, False])
+    new_new_res = []
+    seen = {}
+    for val in new_result:
+        key = str(val[0])+','+str(val[1])+','+str(val[3])
+        key1 = str(val[0]) + ',' + str(val[1]) + ',' + "True"
+        key2 = str(val[0]) + ',' + str(val[1]) + ',' + "False"
+        if(val[3]):
+            if key2 in seen:
+                if [val[0],val[1],seen[key2],False] in new_new_res:
+                    new_new_res.remove([val[0],val[1],seen[key2],False])
+            if key not in seen:
+                new_new_res.append(val)
+                seen[key] = val[2]
+        else:
+            if key1 in seen or key in seen:
+                continue
+            else:
+                seen[key] = val[2]
+                new_new_res.append(val)
+    return sorted(new_new_res, key=lambda tup: tup[0]), seen
 
 def combine_overlapping_ranges(ranges):
     result = []
@@ -117,40 +122,6 @@ def method2(existing_tuples, new_tuple):
     return sorted(existing_tuples, key=lambda tup: tup[0])
 
 
-
-def split_ranges_with_tracking(range1, range2):
-    start1, end1 = range1
-    start2, end2 = range2
-
-    overlapping_ranges = []
-    unique_ranges1 = []
-    unique_ranges2 = []
-
-    # Check and add the first part of range1
-    if start1 < start2:
-        unique_ranges1.append((start1, min(end1, start2 - 1)))
-
-    # Check and add the overlapping part
-    overlap_start = max(start1, start2)
-    overlap_end = min(end1, end2)
-    if overlap_start <= overlap_end:
-        overlapping_ranges.append((overlap_start, overlap_end))
-
-    # Check and add the second part of range1
-    if end1 > end2:
-        unique_ranges1.append((max(start2, end2 + 1), end1))
-
-    # Check and add the first part of range2
-    if start2 < start1:
-        unique_ranges2.append((start2, min(end2, start1 - 1)))
-
-    # Check and add the second part of range2
-    if end2 > end1:
-        unique_ranges2.append((max(start1, end1 + 1), end2))
-
-    return overlapping_ranges, unique_ranges1, unique_ranges2
-
-
 def solution(file):
     lines = file.readlines()
 
@@ -188,11 +159,11 @@ def solution(file):
 
     num_transform = []
     for sr in seed_ranges:
-        num_transform.append((sr[0], sr[1], 0))
+        num_transform.append([sr[0], sr[1], 0, False])
 
     for b in range(1, len(maps)):
+        nt_seen = set()
 
-        print('NEW ROUND')
         # for the existing tuples. if after they are modified, they match the next step, update the change value.
         n = 0
 
@@ -200,22 +171,23 @@ def solution(file):
         while n < len(sortedd):
             other = sortedd[n]
 
-            new, old = method1(num_transform, other)
-            old = list(dict.fromkeys(old))
-            new = list(dict.fromkeys(new))
-            print('here')
-            print(old)
-            print(new)
-            num_transform = sorted(old, key=lambda tup: tup[0])
+            new, nt_seen = method1(num_transform, other, set())
+            num_transform = sorted(new, key=lambda tup: tup[0])
             n += 1
 
-        num_transform = sorted(new, key=lambda tup: tup[0])
+        for r in num_transform:
+            r[3] = False
+        num_transform = sorted(num_transform, key=lambda tup: tup[0])
+        print(num_transform)
 
     mini = 100000000000000000
 
+
     for nt in num_transform:
-        mini = min(mini, nt[0] + nt[2])
-        mini = min(mini, nt[1] + nt[2])
+        if nt[0] + nt[2] > 0:
+            mini = min(mini, nt[0] + nt[2])
+        if nt[1] + nt[2] > 0:
+            mini = min(mini, nt[1] + nt[2])
 
     return mini
 
