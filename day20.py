@@ -1,117 +1,137 @@
 """
 cadybaltz
-12/16/2023
-AoC 2023 Day 16
-Part 1: 849, 00:22:15
-Part 2: 666, 00:26:26
+12/20/2023
+AoC 2023 Day 20
+Part 1: 86, 00:22:40
+Part 2: 97, 00:48:30
 """
-
+import math
 import sys
 from queue import Queue
 
 
 def solution(lines):
-    result = 0
-    h = 0
+    high = 0
     low = 0
 
-    a = {}
-    b = {}
-    queue = []
+    types = {}
+    outputs = {}
     on = {}
     inputs = {}
+    
     for x in range(len(lines)):
         line = lines[x].strip()
 
         values = line.split()
-        if values[0][0] == '%':
-            a[values[0][1:]] = '%'
-            b[values[0][1:]] = []
-            for val in values[2:]:
-                b[values[0][1:]].append(val.replace(',', '').replace(' ', ''))
-            on[values[0][1:]] = False
-        elif values[0][0] == '&':
-            a[values[0][1:]] = '&'
 
-            b[values[0][1:]] = []
-            for val in values[2:]:
-                b[values[0][1:]].append(val.replace(',', '').replace(' ', ''))
+        module = values[0]
+        first = module[0]
+        if first == '%' or first == '&':
+            module = module[1:]
+            types[module] = first
+            if first == '%':
+                # flip-flops start in 'off' state
+                on[module] = False
 
-            inputs[values[0][1:]] = {}
+            else:
+                # conjunctions must store inputs
+                inputs[module] = {}
+
         else:
-            a[values[0]] = 'x'
+            types[module] = None
 
-            b[values[0]] = []
-            for val in values[2:]:
-                b[values[0]].append(val.replace(',', '').replace(' ', ''))
-    print(b)
+        outputs[module] = []
+        for val in values[2:]:
+            outputs[module].append(val.replace(',', ''))
 
+    # find all inputs for each conjunction
     for conj in inputs.keys():
-        for k,v in b.items():
-            for t in v:
-                if t == conj:
+        for k, v in outputs.items():
+            for output in v:
+                if output == conj:
+                    # remember all inputs as low pulse to start
                     inputs[conj][k] = 0
+    cycle = {}
+    cycle_lengths = {}
 
-    res = 0
-    cad_map = {}
-    anbswer = {}
-    while True:
-        res += 1
+    pt1_count = 0
+    pt2_answer = None
+    count = 0
+
+    while pt1_count < 1000 or pt2_answer is None:
+        count += 1
         curr = 'broadcaster'
         qu = Queue()
         qu.put((curr, 0, None))
 
         while qu.qsize() > 0:
-            next_v, next_p, last = qu.get()
-            # print(next_v, next_p, last)
-            if next_p == 0:
-                low += 1
-            else:
-                h += 1
+            next_v, next_p, last_v = qu.get()
 
-            if next_v == 'vd':
-                for keycad, cad in inputs[next_v].items():
-                    if cad == 1:
-                        if keycad not in cad_map:
-                            cad_map[keycad] = res
-                        elif res > cad_map[keycad]:
-                            anbswer[keycad] = res - cad_map[keycad]
-                        if len(anbswer) == 4:
-                            return anbswer
-
-
-            if next_v not in a:
+            # check if the pulse is low or high
+            if pt1_count < 1000:
                 if next_p == 0:
-                    return res
+                    low += 1
+                else:
+                    high += 1
+
+            # manually checked my input to see what module sends a pulse to rx
+            # &vd -> rx
+            if next_v == 'vd':
+                for input_v, input_p in inputs[next_v].items():
+                    if input_p == 1:
+                        if input_v not in cycle:
+                            cycle[input_v] = count
+                        elif count > cycle[input_v]:
+                            cycle_lengths[input_v] = count - cycle[input_v]
+
+                        # found cycle lengths for all inputs to 'vd'
+                        if len(cycle_lengths) == len(inputs[next_v]):
+                            pt2_answer = 1
+
+                            # calculate LCM of all inputs to find the first cycle they will all be high pulses
+                            for length in cycle_lengths.values():
+                                pt2_answer = math.lcm(pt2_answer, int(length))
+
+            # only hit for rx
+            if next_v not in types:
                 continue
 
-            if a[next_v] == '%':
+            if types[next_v] == '%':
+
+                # flip flop logic
                 if next_p == 0:
                     if on[next_v]:
                         on[next_v] = False
-                        for cont in b[next_v]:
+                        for cont in outputs[next_v]:
                             qu.put((cont, 0, next_v))
                     else:
                         on[next_v] = True
-                        for cont in b[next_v]:
+                        for cont in outputs[next_v]:
                             qu.put((cont, 1, next_v))
-            elif a[next_v] == '&':
-                inputs[next_v][last] = next_p
+
+            elif types[next_v] == '&':
+
+                # update the current input pulse
+                inputs[next_v][last_v] = next_p
+
+                # check if all the inputs are remembered as high pulses
                 all_high = True
                 for n in inputs[next_v].values():
                     if not n:
                         all_high = False
                 if all_high:
-                    for cont in b[next_v]:
+                    for cont in outputs[next_v]:
                         qu.put((cont, 0, next_v))
                 else:
-                    for cont in b[next_v]:
+                    for cont in outputs[next_v]:
                         qu.put((cont, 1, next_v))
             else:
-                for cont in b[next_v]:
+                for cont in outputs[next_v]:
                     qu.put((cont, next_p, next_v))
+        pt1_count += 1
 
-    return low * h
+    print(low,high)
+    return low * high, pt2_answer
 
 
 if __name__ == '__main__':
@@ -121,10 +141,7 @@ if __name__ == '__main__':
         input = open("input.txt", "r")
 
     lines = input.readlines()
+    solution = solution(lines)
 
-    print(solution(lines))
-
-
-# 456600365373478
-# 456600365373479
-# 228300182686739
+    print("Part 1: " + str(solution[0]))
+    print("Part 2: " + str(solution[1]))
